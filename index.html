@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bergop Interval</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--surface:#111;--border:#222;
+  --accent:#e8ff00;--accent2:#ff6b00;
+  --text:#f0f0f0;--muted:#555;
+  --done-bg:#0d1a00;--done-border:#2a4a00;
+}
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;min-height:100vh;max-width:480px;margin:0 auto;padding-bottom:80px;}
+
+/* NAV */
+.nav{display:flex;background:#0d0d0d;border-bottom:1px solid var(--border);position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;z-index:50;}
+.nav-btn{flex:1;padding:0.85rem 0.5rem 1rem;background:transparent;border:none;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.55rem;letter-spacing:1.5px;text-transform:uppercase;cursor:pointer;border-top:2px solid transparent;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:0.2rem;}
+.nav-btn.active{color:var(--accent);border-top-color:var(--accent);}
+.nav-icon{font-size:1.1rem;}
+
+/* PAGES */
+.page{display:none;padding:1.5rem 1rem 2rem;}
+.page.active{display:block;}
+
+/* MODALS */
+.modal-overlay{display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.93);z-index:200;align-items:flex-end;justify-content:center;}
+.modal-overlay.hidden{display:none;}
+.modal{background:#161616;border-top:1px solid var(--accent);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:2rem 1.5rem 3rem;animation:slideUp 0.3s ease;}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes popIn{from{transform:scale(0.92);opacity:0}to{transform:scale(1);opacity:1}}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:2rem;color:var(--accent);letter-spacing:2px;margin-bottom:0.25rem;}
+.modal-sub{font-size:0.62rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:1.5rem;}
+.field label{display:block;font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.35rem;}
+.field input{width:100%;background:#0a0a0a;border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Mono',monospace;font-size:1.1rem;padding:0.7rem 0.9rem;outline:none;transition:border-color 0.2s;margin-bottom:1.2rem;}
+.field input:focus{border-color:var(--accent);}
+.prev-note{background:#0d1a00;border:1px solid var(--done-border);border-radius:8px;padding:0.9rem 1rem;margin-bottom:1.2rem;font-size:0.7rem;color:#aaa;line-height:1.7;display:none;}
+.prev-note.show{display:block;}
+.prev-note strong{color:var(--accent);display:block;font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;margin-bottom:0.3rem;}
+.modal-btn{display:block;width:100%;padding:1rem;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:'DM Mono',monospace;font-size:0.85rem;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+
+/* PAGE HEADER */
+.ph{margin-bottom:1.5rem;border-left:3px solid var(--accent);padding-left:1rem;}
+.ph h1{font-family:'Bebas Neue',sans-serif;font-size:2.5rem;line-height:1;letter-spacing:2px;color:var(--accent);}
+.ph p{font-size:0.65rem;color:var(--muted);margin-top:0.25rem;letter-spacing:1px;text-transform:uppercase;}
+.session-badge{font-size:0.68rem;color:var(--accent2);display:block;margin-top:0.25rem;}
+
+/* PROGRESS */
+.prog-wrap{background:var(--border);height:3px;border-radius:2px;margin-bottom:1.5rem;overflow:hidden;}
+.prog-bar{height:100%;background:var(--accent);width:0%;transition:width 0.4s ease;}
+.prog-label{font-size:0.65rem;color:var(--muted);text-align:right;margin-top:-1.2rem;margin-bottom:1.5rem;letter-spacing:1px;}
+
+/* ITEMS */
+.sec{font-size:0.58rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:1.2rem 0 0.5rem;}
+.item{display:flex;align-items:center;gap:0.9rem;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:0.8rem 0.9rem;margin-bottom:0.4rem;cursor:pointer;transition:all 0.18s;user-select:none;-webkit-tap-highlight-color:transparent;}
+.item:active{transform:scale(0.97);}
+.item.done{background:var(--done-bg);border-color:var(--done-border);}
+.item.done .item-main{opacity:0.4;text-decoration:line-through;text-decoration-color:var(--accent);}
+.cb{width:20px;height:20px;border:2px solid var(--muted);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:all 0.18s;}
+.item.done .cb{background:var(--accent);border-color:var(--accent);}
+.ck{display:none;color:#000;font-size:12px;font-weight:bold;}
+.item.done .ck{display:block;}
+.item-main{flex:1;}
+.item-name{font-size:0.85rem;font-weight:500;color:var(--text);}
+.item-meta{font-size:0.65rem;color:var(--muted);margin-top:0.15rem;}
+.item-watt{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;letter-spacing:1px;flex-shrink:0;}
+.warmup .item-watt,.cooldown .item-watt{color:var(--muted);}
+.herstel .item-watt{color:#2a2a2a;}
+.bLow .item-watt{color:#ff9500;}
+.bMid .item-watt{color:#ff7000;}
+.bHigh .item-watt{color:#ff4500;}
+
+/* POPUP */
+.pop-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:100;align-items:flex-end;justify-content:center;}
+.pop-overlay.active{display:flex;}
+.pop{background:#161616;border-top:1px solid var(--accent);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding:1.8rem 1.5rem 3rem;animation:slideUp 0.25s ease;}
+.pop-tag{font-family:'Bebas Neue',sans-serif;font-size:0.8rem;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:0.3rem;}
+.pop-quote{font-family:'Bebas Neue',sans-serif;font-size:1.7rem;line-height:1.15;color:var(--accent);margin-bottom:1rem;letter-spacing:1px;}
+.pop-div{height:1px;background:var(--border);margin-bottom:1rem;}
+.pop-lbl{font-size:0.58rem;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:0.4rem;}
+.pop-txt{font-size:0.8rem;color:#ccc;line-height:1.65;}
+.pop-btn{display:block;width:100%;margin-top:1.3rem;padding:0.85rem;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:'DM Mono',monospace;font-size:0.78rem;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+
+/* POST SESSION */
+.flow{display:none;margin-top:1.5rem;}
+.flow.active{display:block;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.3rem;margin-bottom:0.9rem;}
+.card-title{font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--accent);letter-spacing:1px;margin-bottom:0.9rem;}
+.qlbl{font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.5rem;display:block;}
+.qblock{margin-bottom:1.2rem;}
+.qblock:last-child{margin-bottom:0;}
+.qopts{display:flex;flex-wrap:wrap;gap:0.4rem;}
+.qbtn{padding:0.45rem 0.85rem;border:1px solid var(--border);border-radius:20px;background:transparent;color:#999;font-family:'DM Mono',monospace;font-size:0.68rem;cursor:pointer;transition:all 0.15s;}
+.qbtn.sel{border-color:var(--accent);color:#000;background:var(--accent);}
+.voorstel{background:#0d1a00;border:1px solid var(--accent);border-radius:8px;padding:1.1rem;margin-top:0.9rem;display:none;}
+.voorstel.active{display:block;}
+.v-lbl{font-size:0.58rem;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:0.5rem;}
+.v-txt{font-size:0.78rem;color:#ccc;line-height:1.7;}
+.v-row{display:flex;align-items:baseline;gap:0.5rem;margin-bottom:0.4rem;}
+.v-blok{font-size:0.6rem;color:var(--muted);letter-spacing:1px;width:80px;flex-shrink:0;}
+.v-advies{font-size:0.78rem;color:var(--text);}
+.v-note{font-size:0.7rem;color:var(--muted);margin-top:0.75rem;line-height:1.6;border-top:1px solid var(--border);padding-top:0.75rem;}
+
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:0.9rem;}
+.dfield label{display:block;font-size:0.55rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem;}
+.dfield input{width:100%;background:#0a0a0a;border:1px solid var(--border);border-radius:5px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.85rem;padding:0.5rem 0.65rem;outline:none;transition:border-color 0.2s;}
+.dfield input:focus{border-color:var(--accent);}
+.dfield input::placeholder{color:#2a2a2a;}
+.dsub{font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin:0.6rem 0;}
+.save-btn{display:block;width:100%;padding:0.9rem;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:'DM Mono',monospace;font-size:0.8rem;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-top:0.5rem;}
+.save-btn:disabled{opacity:0.5;cursor:default;}
+
+/* DEEL */
+.deel-card{background:#0a0f00;border:1px solid var(--accent);border-radius:10px;padding:1.3rem;margin-bottom:0.9rem;display:none;}
+.deel-card.active{display:block;}
+.deel-lbl{font-size:0.58rem;letter-spacing:3px;text-transform:uppercase;color:var(--accent);margin-bottom:0.5rem;}
+.deel-note{font-size:0.7rem;color:var(--muted);margin-bottom:0.9rem;line-height:1.6;}
+.deel-btn{display:flex;align-items:center;justify-content:center;gap:0.5rem;width:100%;padding:0.9rem;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:'DM Mono',monospace;font-size:0.8rem;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-bottom:0.5rem;}
+.copy-btn{display:block;width:100%;padding:0.75rem;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+
+/* RESET */
+.reset-btn{display:block;width:100%;margin-top:1.5rem;padding:0.85rem;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'DM Mono',monospace;font-size:0.72rem;letter-spacing:2px;text-transform:uppercase;cursor:pointer;}
+
+/* HISTORIEK */
+.hist-empty{font-size:0.75rem;color:#333;letter-spacing:1px;padding:3rem 0;text-align:center;}
+.hcard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.1rem 1.2rem;margin-bottom:0.75rem;}
+.hcard-date{font-size:0.58rem;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:0.6rem;}
+.hcard-stats{display:grid;grid-template-columns:1fr 1fr;gap:0.3rem 1rem;margin-bottom:0.6rem;}
+.hstat{font-size:0.72rem;color:#aaa;display:flex;justify-content:space-between;}
+.hstat span:last-child{color:var(--text);}
+.hcard-doel{font-size:0.68rem;color:var(--accent2);margin-top:0.5rem;}
+.hcard-next{font-size:0.68rem;color:var(--accent);margin-top:0.35rem;line-height:1.5;}
+
+/* INSTELLINGEN */
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:1.3rem;margin-bottom:0.9rem;}
+.scard-title{font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--text);letter-spacing:1px;margin-bottom:1rem;}
+.srow{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.9rem;}
+.srow:last-child{margin-bottom:0;}
+.slbl{font-size:0.72rem;color:#ccc;flex:1;}
+.slbl small{display:block;font-size:0.6rem;color:var(--muted);margin-top:0.15rem;}
+.sval{display:flex;align-items:center;gap:0.5rem;}
+.sval button{width:28px;height:28px;border:1px solid var(--border);border-radius:6px;background:transparent;color:var(--text);font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.sval button:active{background:var(--accent);color:#000;border-color:var(--accent);}
+.sval span{font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--accent);min-width:45px;text-align:center;}
+.s-apply{display:block;width:100%;padding:0.9rem;background:var(--accent);border:none;border-radius:8px;color:#000;font-family:'DM Mono',monospace;font-size:0.8rem;font-weight:500;letter-spacing:2px;text-transform:uppercase;cursor:pointer;margin-top:0.5rem;}
+.s-note{font-size:0.68rem;color:var(--muted);line-height:1.6;margin-bottom:1rem;}
+.s-preview{background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:1rem;margin-top:1rem;}
+.s-preview-title{font-size:0.58rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:0.6rem;}
+.s-preview-row{display:flex;justify-content:space-between;font-size:0.72rem;color:#aaa;margin-bottom:0.3rem;}
+.s-preview-row span:last-child{color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- START MODAL -->
+<div class="modal-overlay" id="startOverlay">
+  <div class="modal">
+    <div class="modal-title">Bergop Interval</div>
+    <div class="modal-sub">Nieuwe sessie</div>
+    <div class="prev-note" id="prevNote">
+      <strong>Vorige sessie</strong>
+      <span id="prevNoteText"></span>
+    </div>
+    <div class="field">
+      <label>Gewicht vandaag (kg)</label>
+      <input type="number" id="startGewicht" placeholder="112" step="0.1" inputmode="decimal">
+    </div>
+    <button class="modal-btn" onclick="startSessie()">Start sessie →</button>
+  </div>
+</div>
+
+<!-- TRAINING PAGE -->
+<div class="page active" id="page-training">
+  <div class="ph">
+    <h1>Bergop<br>Interval</h1>
+    <p>Indoor Cycling · Ardense klimtraining</p>
+    <span class="session-badge" id="sessionBadge"></span>
+  </div>
+  <div class="prog-wrap"><div class="prog-bar" id="progBar"></div></div>
+  <div class="prog-label" id="progLabel">0 / — gedaan</div>
+  <div id="itemList"></div>
+
+  <!-- POST SESSION -->
+  <div class="flow" id="flow">
+    <div class="card">
+      <div class="card-title">Evaluatie</div>
+      <div class="qblock">
+        <span class="qlbl">Hoe voelden de zware blokken (blok 4–6) aan?</span>
+        <div class="qopts">
+          <button class="qbtn" onclick="selQ(this,'q1')">Te licht</button>
+          <button class="qbtn" onclick="selQ(this,'q1')">Haalbaar</button>
+          <button class="qbtn" onclick="selQ(this,'q1')">Op het randje</button>
+          <button class="qbtn" onclick="selQ(this,'q1')">Niet afgerond</button>
+        </div>
+      </div>
+      <div class="qblock">
+        <span class="qlbl">Hoe snel herstelde je hartslag na de blokken?</span>
+        <div class="qopts">
+          <button class="qbtn" onclick="selQ(this,'q2')">Snel (&lt;30s)</button>
+          <button class="qbtn" onclick="selQ(this,'q2')">Normaal (30–60s)</button>
+          <button class="qbtn" onclick="selQ(this,'q2')">Traag (&gt;60s)</button>
+        </div>
+      </div>
+      <div class="qblock">
+        <span class="qlbl">Wat wil je kunnen in de Ardennen?</span>
+        <div class="qopts">
+          <button class="qbtn" onclick="selQ(this,'q3')">Steilere hellingen</button>
+          <button class="qbtn" onclick="selQ(this,'q3')">Meer hellingen na elkaar</button>
+          <button class="qbtn" onclick="selQ(this,'q3')">Langere hellingen</button>
+        </div>
+      </div>
+      <div class="voorstel" id="voorstel">
+        <div class="v-lbl">Voorstel volgende sessie</div>
+        <div id="voorstelTxt"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="dsub">Data van het toestel</div>
+      <div class="dgrid">
+        <div class="dfield"><label>Kcal verbrand</label><input type="number" id="dKcal" placeholder="480"></div>
+        <div class="dfield"><label>Afstand (km)</label><input type="number" id="dKm" placeholder="18.4" step="0.1"></div>
+      </div>
+      <div class="dsub">Hartslagmeter</div>
+      <div class="dgrid">
+        <div class="dfield"><label>Gem. hartslag (bpm)</label><input type="number" id="dHrAvg" placeholder="158"></div>
+        <div class="dfield"><label>Max. hartslag (bpm)</label><input type="number" id="dHrMax" placeholder="178"></div>
+      </div>
+      <button class="save-btn" id="saveBtn" onclick="saveData()">Sessie opslaan →</button>
+    </div>
+
+    <div class="deel-card" id="deelCard">
+      <div class="deel-lbl">✓ Sessie opgeslagen</div>
+      <div class="deel-note">Deel je samenvatting via Mail, WhatsApp of Notes.</div>
+      <button class="deel-btn" onclick="deelSessie()">↗ Deel sessie</button>
+      <button class="copy-btn" onclick="kopieerSessie()">Kopieer als tekst</button>
+    </div>
+  </div>
+
+  <button class="reset-btn" onclick="resetAll()">↺ Nieuwe sessie starten</button>
+</div>
+
+<!-- HISTORIEK PAGE -->
+<div class="page" id="page-historiek">
+  <div class="ph">
+    <h1>Historiek</h1>
+    <p id="histSubtitle">Jouw trainingslog</p>
+  </div>
+  <div id="histList"></div>
+</div>
+
+<!-- INSTELLINGEN PAGE -->
+<div class="page" id="page-instellingen">
+  <div class="ph">
+    <h1>Instellingen</h1>
+    <p>Pas je sessie aan</p>
+  </div>
+
+  <div class="s-note">Wijzigingen worden toegepast bij de volgende sessie. De afvinklijst past zich automatisch aan.</div>
+
+  <div class="scard">
+    <div class="scard-title">Aantal blokken</div>
+    <div class="srow">
+      <div class="slbl">Blokken<small>Nu: <span id="lblBlokken">6</span> blokken</small></div>
+      <div class="sval">
+        <button onclick="adj('blokken',-1)">−</button>
+        <span id="valBlokken">6</span>
+        <button onclick="adj('blokken',1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scard">
+    <div class="scard-title">Wattage per fase</div>
+    <div class="srow">
+      <div class="slbl">Blok 1–2 (opbouw)<small>Startzone</small></div>
+      <div class="sval">
+        <button onclick="adj('wLow',-5)">−</button>
+        <span id="valWLow">190W</span>
+        <button onclick="adj('wLow',5)">+</button>
+      </div>
+    </div>
+    <div class="srow">
+      <div class="slbl">Blok 3 (brug)<small>Overgangszone</small></div>
+      <div class="sval">
+        <button onclick="adj('wMid',-5)">−</button>
+        <span id="valWMid">200W</span>
+        <button onclick="adj('wMid',5)">+</button>
+      </div>
+    </div>
+    <div class="srow">
+      <div class="slbl">Blok 4–6 (doelzone)<small>Zware blokken</small></div>
+      <div class="sval">
+        <button onclick="adj('wHigh',-5)">−</button>
+        <span id="valWHigh">210W</span>
+        <button onclick="adj('wHigh',5)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scard">
+    <div class="scard-title">Duur per blok</div>
+    <div class="srow">
+      <div class="slbl">Blokduur<small>Geldt voor alle blokken</small></div>
+      <div class="sval">
+        <button onclick="adj('blokDuur',-1)">−</button>
+        <span id="valBlokDuur">4 min</span>
+        <button onclick="adj('blokDuur',1)">+</button>
+      </div>
+    </div>
+    <div class="srow">
+      <div class="slbl">Herstelduur<small>Tussen blokken</small></div>
+      <div class="sval">
+        <button onclick="adj('herstellDuur',-1)">−</button>
+        <span id="valHerstellDuur">1 min</span>
+        <button onclick="adj('herstellDuur',1)">+</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scard">
+    <div class="scard-title">Sessieoverzicht</div>
+    <div class="s-preview" id="sPreview"></div>
+  </div>
+
+  <button class="s-apply" onclick="saveSettings()">Instellingen opslaan →</button>
+</div>
+
+<!-- POPUP -->
+<div class="pop-overlay" id="popOverlay" onclick="closePopOverlay(event)">
+  <div class="pop">
+    <div class="pop-tag" id="popTag"></div>
+    <div class="pop-quote" id="popQuote"></div>
+    <div class="pop-div"></div>
+    <div class="pop-lbl">Wat je nu voelt</div>
+    <div class="pop-txt" id="popTxt"></div>
+    <button class="pop-btn" id="popBtn" onclick="closePopBtn()">Volgende blok →</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <button class="nav-btn active" onclick="showPage('training',this)"><span class="nav-icon">🚴</span>Training</button>
+  <button class="nav-btn" onclick="showPage('historiek',this)"><span class="nav-icon">📊</span>Historiek</button>
+  <button class="nav-btn" onclick="showPage('instellingen',this)"><span class="nav-icon">⚙️</span>Instellingen</button>
+</div>
+
+<script>
+const SK = 'bergop_v4';
+const SK_CFG = 'bergop_cfg';
+
+// DEFAULT CONFIG
+const DEFAULT_CFG = { blokken:6, wLow:190, wMid:200, wHigh:210, blokDuur:4, herstellDuur:1 };
+let cfg = Object.assign({}, DEFAULT_CFG);
+let sessies = [];
+let gewicht = null;
+let doel = null;
+let totalItems = 0;
+
+// QUOTE POOLS per blok
+const QUOTES = {
+  low: [
+    {q:'De eerste klim begint altijd met de zwaarste stap.',t:'Benen voelen weerstand maar zijn nog fris. Ademhaling trekt aan. Hartslag ~140–155 bpm. Je hebt controle.'},
+    {q:'Elk groot resultaat begint met een kleine eerste stap.',t:'Je lichaam warmt op voor het echte werk. Voel de weerstand, pas je cadans aan. Dit is de basis.'},
+    {q:'Begin goed. De rest volgt vanzelf.',t:'Benen actief, cadans stabiel. Hartslag klimt geleidelijk. Je bouwt het fundament voor de zware blokken.'},
+  ],
+  mid: [
+    {q:'Ongemak is geen signaal om te stoppen. Het is bewijs dat je werkt.',t:'Overgang naar hogere weerstand is voelbaar. Quadriceps werken hard. Hartslag 160–170 bpm. Kantelpunt van de sessie.'},
+    {q:'Ritme is krachtiger dan snelheid.',t:'Houd je cadans stabiel. Niet sneller trappen om het makkelijker te maken — dat werkt niet. Kracht door weerstand.'},
+    {q:'Dit is waar de training echt begint.',t:'Je voelt de versnelling. Rug en core spannen mee. Hartslag loopt op. Bewaar energie voor de zware blokken.'},
+  ],
+  high: [
+    {q:'De Ardennen wachten. Dit is waar je ze verslaat.',t:'Je zit in de doelzone. Benen zwaar, ademhaling geforceerd maar gecontroleerd. Hartslag 165–175 bpm. Focus op cadans.'},
+    {q:'Iedereen kan starten. Winnaars blijven zitten als het pijn doet.',t:'Zwaarste blokken mentaal. Benen verzuurd. Adem diep, houd de weerstand vast. Dit is de kern van de training.'},
+    {q:'Pijn is tijdelijk. Prestatie blijft.',t:'Je lichaam protesteert — dat is normaal. Je traint je klimkracht. Elke seconde die je volhoudt telt.'},
+    {q:'Laatste klim. Geef alles wat nog in de tank zit.',t:'Benen zwaar maar dit is het laatste zware blok. Laat de hartslag oplopen. Na dit blok ben je er.'},
+    {q:'Hier worden Ardense hellingen gewonnen of verloren.',t:'De doelzone. Hou de cadans laag en de kracht hoog. Dit is precies wat je nodig hebt voor echte klimmen.'},
+  ],
+  cooldown: [
+    {q:'Je hebt vandaag gedaan wat de meeste mensen uitstellen. Dat is het verschil.',t:'Hartslag daalt, spieren ontspannen. Laat het lichaam afkoelen. Vul hieronder je data in.'},
+    {q:'Herstel is geen zwakte. Het is deel van de training.',t:'Je lichaam verwerkt nu wat je net gedaan hebt. Rustig uitrijden. Evalueer hierna je sessie.'},
+    {q:'Elke sessie maakt de volgende gemakkelijker.',t:'De aanpassingen in je spieren beginnen nu. Cool-down afmaken — dan evalueren.'},
+  ]
+};
+
+function getRandQuote(pool, idx) {
+  // Rotate based on total session count for variety
+  const n = sessies.length;
+  return pool[(n + idx) % pool.length];
+}
+
+// INIT
+(function init(){
+  try{ const r=localStorage.getItem(SK_CFG); if(r) cfg=JSON.parse(r); }catch(e){}
+  try{ const r=localStorage.getItem(SK); if(r) sessies=JSON.parse(r); }catch(e){}
+  syncSettingsUI();
+  buildItemList();
+  renderHistoriek();
+  updatePreview();
+  // Prev session note
+  if(sessies.length>0){
+    const last=sessies[sessies.length-1];
+    const note=document.getElementById('prevNote');
+    const txt=document.getElementById('prevNoteText');
+    let parts=[last.datum];
+    if(last.gewicht) parts.push(last.gewicht+' kg');
+    if(last.wHigh) parts.push('Doelzone: '+last.wHigh+'W');
+    if(last.doel&&last.doel!=='—') parts.push(last.doel);
+    txt.textContent=parts.join(' · ');
+    if(last.voorstelRaw) txt.textContent+='\n→ '+last.voorstelRaw.substring(0,100)+(last.voorstelRaw.length>100?'…':'');
+    note.classList.add('show');
+  }
+})();
+
+function buildItemList(){
+  const el=document.getElementById('itemList');
+  let html='';
+  let count=0;
+
+  // Warming up
+  html+=`<div class="sec">Warming-up</div>`;
+  html+=makeItem('warmup','Warming-up','8 min · 80–90 rpm','140W','warmup',null); count++;
+
+  // Blokken
+  html+=`<div class="sec">Blokken</div>`;
+  for(let i=1;i<=cfg.blokken;i++){
+    let cls, w, popKey;
+    if(i<=2){cls='bLow';w=cfg.wLow+'W';popKey='low_'+i;}
+    else if(i===3){cls='bMid';w=cfg.wMid+'W';popKey='mid_'+i;}
+    else{cls='bHigh';w=cfg.wHigh+'W';popKey='high_'+i;}
+    html+=makeItem(cls,'Blok '+i,cfg.blokDuur+' min · 60–70 rpm',w,'blok',popKey); count++;
+    if(i<cfg.blokken){
+      html+=makeItem('herstel','Herstel',cfg.herstellDuur+' min · vrij','100W','herstel',null); count++;
+    }
+  }
+
+  // Cooldown
+  html+=`<div class="sec">Cool-down</div>`;
+  html+=makeItem('cooldown','Cool-down','6 min · 80 rpm','120W','cooldown','cooldown_1'); count++;
+
+  el.innerHTML=html;
+  totalItems=count;
+  document.getElementById('progLabel').textContent='0 / '+totalItems+' gedaan';
+}
+
+function makeItem(cls,name,meta,watt,type,popKey){
+  const pk=popKey?`data-popup="${popKey}" data-poptype="${type}"`:'';
+  return `<div class="item ${cls}" onclick="toggle(this)" ${pk}>
+    <div class="cb"><span class="ck">✓</span></div>
+    <div class="item-main"><div class="item-name">${name}</div><div class="item-meta">${meta}</div></div>
+    <div class="item-watt">${watt}</div>
+  </div>`;
+}
+
+function showPage(p,btn){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(p==='historiek') renderHistoriek();
+  if(p==='instellingen') updatePreview();
+}
+
+function startSessie(){
+  const g=parseFloat(document.getElementById('startGewicht').value);
+  if(!g||g<40||g>300){document.getElementById('startGewicht').style.borderColor='#ff4444';return;}
+  gewicht=g;
+  document.getElementById('startOverlay').classList.add('hidden');
+  document.getElementById('sessionBadge').textContent=g+' kg · '+new Date().toLocaleDateString('nl-BE');
+}
+
+function toggle(el){
+  const wasOff=!el.classList.contains('done');
+  el.classList.toggle('done');
+  updateProg();
+  if(wasOff&&el.dataset.popup) showPop(el.dataset.popup, el.dataset.poptype);
+}
+
+function showPop(key, type){
+  let pool, idx=0;
+  if(type==='low'){pool=QUOTES.low;idx=parseInt(key.split('_')[1])-1;}
+  else if(type==='mid'){pool=QUOTES.mid;idx=parseInt(key.split('_')[1])-3;}
+  else if(type==='high'){pool=QUOTES.high;idx=parseInt(key.split('_')[1])-4;}
+  else if(type==='cooldown'){pool=QUOTES.cooldown;idx=0;}
+  else return;
+
+  const q=getRandQuote(pool,idx);
+  const blokNr=key.split('_')[1];
+  document.getElementById('popTag').textContent=type==='cooldown'?'Sessie voltooid':'Blok '+blokNr+' — '+getWattForType(type)+'W';
+  document.getElementById('popQuote').textContent=q.q;
+  document.getElementById('popTxt').textContent=q.t;
+  document.getElementById('popBtn').textContent=type==='cooldown'?'Evalueer sessie ↓':'Volgende blok →';
+  document.getElementById('popOverlay').classList.add('active');
+}
+
+function getWattForType(type){
+  if(type==='low') return cfg.wLow;
+  if(type==='mid') return cfg.wMid;
+  if(type==='high') return cfg.wHigh;
+  return '';
+}
+
+function closePopOverlay(e){if(e.target===document.getElementById('popOverlay'))document.getElementById('popOverlay').classList.remove('active');}
+function closePopBtn(){document.getElementById('popOverlay').classList.remove('active');}
+
+function selQ(btn,group){
+  btn.closest('.qopts').querySelectorAll('.qbtn').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(group==='q3'){doel=btn.textContent.trim();}
+  genereerVoorstel();
+}
+
+function getQ(needle){
+  for(const b of document.querySelectorAll('.qbtn.sel')){
+    const lbl=b.closest('.qblock')?.querySelector('.qlbl')?.textContent||'';
+    if(lbl.toLowerCase().includes(needle)) return b.textContent.trim();
+  }
+  return null;
+}
+
+function genereerVoorstel(){
+  const q1=getQ('blok 4');
+  const q2=getQ('hartslag');
+  const q3=getQ('ardennen');
+  if(!q1||!q3) return;
+
+  const wH=cfg.wHigh;
+  const wM=cfg.wMid;
+  const wL=cfg.wLow;
+  const bd=cfg.blokDuur;
+  const nB=cfg.blokken;
+  let rows=[];
+  let note='';
+  let raw='';
+
+  if(q3==='Steilere hellingen'){
+    if(q1==='Te licht'){
+      rows=[
+        {b:'Blok 1–2',a:`${wL}W → ${wL+10}W`},
+        {b:'Blok 3',a:`${wM}W → ${wM+10}W`},
+        {b:'Blok 4–'+nB,a:`${wH}W → ${wH+10}W`},
+      ];
+      note=`Helling equivalent stijgt van ~${Math.round(5+(wH-190)/20)}% naar ~${Math.round(5+(wH+10-190)/20)}% gedurende ${bd} min.`;
+      raw=`Verhoog alle zones met +10W. Nieuw doelwattage: ${wH+10}W.`;
+    } else if(q1==='Haalbaar'&&q2!=='Traag (>60s)'){
+      rows=[
+        {b:'Blok 1–2',a:`${wL}W (gelijk)`},
+        {b:'Blok 3',a:`${wM}W (gelijk)`},
+        {b:'Blok 4–'+nB,a:`${wH}W → ${wH+5}W`},
+      ];
+      note=`Alleen de zware blokken gaan +5W. Blok 1–3 blijft gelijk als opbouw.`;
+      raw=`Verhoog blok 4–${nB} naar ${wH+5}W. Rest gelijk.`;
+    } else if(q1==='Op het randje'){
+      rows=[
+        {b:'Alle blokken',a:'Zelfde wattage houden'},
+      ];
+      note=`Je zat op je grens. Houd ${wH}W nog één sessie. Als blok ${nB} haalbaar voelt: +5W.`;
+      raw=`Houd hetzelfde wattage. Eerst consolideren.`;
+    } else {
+      rows=[
+        {b:'Blok 1–2',a:`${wL}W → ${wL-10}W`},
+        {b:'Blok 3',a:`${wM}W → ${wM-10}W`},
+        {b:'Blok 4–'+nB,a:`${wH}W → ${wH-10}W`},
+      ];
+      note=`Blok ${nB} niet afgerond. Verlaag alle zones met -10W. Eerst volledig afwerken.`;
+      raw=`Verlaag alle zones -10W. Sessie volledig afwerken is prioriteit.`;
+    }
+  } else if(q3==='Meer hellingen na elkaar'){
+    if(q1==='Te licht'||q1==='Haalbaar'){
+      rows=[
+        {b:'Blokken',a:`${nB} → ${nB+1} blokken`},
+        {b:'Wattage',a:'Gelijk houden'},
+      ];
+      note=`Je herstelt goed genoeg voor een extra blok. Voeg blok ${nB+1} toe aan hetzelfde wattage (${wH}W).`;
+      raw=`Voeg blok ${nB+1} toe: ${wH}W, ${bd} min.`;
+    } else if(q1==='Op het randje'){
+      rows=[
+        {b:'Blokken',a:'Gelijk houden'},
+        {b:'Herstel',a:`${cfg.herstellDuur} min → ${cfg.herstellDuur+1} min`},
+      ];
+      note=`Nog niet klaar voor extra blok. Verleng herstel naar ${cfg.herstellDuur+1} min. Daarna blok ${nB+1} toevoegen.`;
+      raw=`Verleng herstel naar ${cfg.herstellDuur+1} min. Dan pas extra blok toevoegen.`;
+    } else {
+      rows=[{b:'Focus',a:'Eerst alle '+nB+' blokken afwerken'}];
+      note=`Prioriteit: alle ${nB} blokken afwerken. Daarna uitbreiden.`;
+      raw=`Alle ${nB} blokken afwerken voor je uitbreidt.`;
+    }
+  } else if(q3==='Langere hellingen'){
+    if(q1==='Te licht'||q1==='Haalbaar'){
+      rows=[
+        {b:'Blokduur',a:`${bd} min → ${bd+1} min`},
+        {b:'Wattage',a:'Gelijk houden'},
+      ];
+      note=`Langere hellingen = langere blokken. ${bd+1} min bij ${wH}W ≈ ~${Math.round((bd+1)*200)}m extra helling.`;
+      raw=`Verleng blokken naar ${bd+1} min. Wattage blijft ${wH}W.`;
+    } else if(q1==='Op het randje'){
+      rows=[
+        {b:'Blokduur',a:'Gelijk houden'},
+        {b:'Herstel',a:`${cfg.herstellDuur} min → ${cfg.herstellDuur+1} min`},
+      ];
+      note=`Nog niet klaar voor langere blokken. Meer herstel tussendoor maakt het haalbaar.`;
+      raw=`Meer herstel tussendoor. Dan pas blokken verlengen.`;
+    } else {
+      rows=[{b:'Focus',a:`Alle ${nB} blokken afwerken op ${wH}W`}];
+      note=`Eerst volledig afwerken. Dan pas verlengen.`;
+      raw=`Volledig afwerken is prioriteit.`;
+    }
+  }
+
+  let html=rows.map(r=>`<div class="v-row"><span class="v-blok">${r.b}</span><span class="v-advies">${r.a}</span></div>`).join('');
+  if(note) html+=`<div class="v-note">${note}</div>`;
+  document.getElementById('voorstelTxt').innerHTML=html;
+  document.getElementById('voorstel').classList.add('active');
+  return raw;
+}
+
+// SETTINGS
+function adj(key,delta){
+  const limits={blokken:[3,10],wLow:[100,400],wMid:[100,400],wHigh:[100,400],blokDuur:[1,10],herstellDuur:[1,5]};
+  const [mn,mx]=limits[key];
+  cfg[key]=Math.min(mx,Math.max(mn,cfg[key]+delta));
+  syncSettingsUI();
+  updatePreview();
+}
+
+function syncSettingsUI(){
+  document.getElementById('valBlokken').textContent=cfg.blokken;
+  document.getElementById('lblBlokken').textContent=cfg.blokken;
+  document.getElementById('valWLow').textContent=cfg.wLow+'W';
+  document.getElementById('valWMid').textContent=cfg.wMid+'W';
+  document.getElementById('valWHigh').textContent=cfg.wHigh+'W';
+  document.getElementById('valBlokDuur').textContent=cfg.blokDuur+' min';
+  document.getElementById('valHerstellDuur').textContent=cfg.herstellDuur+' min';
+}
+
+function updatePreview(){
+  const warmup=8, cooldown=6;
+  const blokTijd=cfg.blokken*cfg.blokDuur;
+  const herstelTijd=(cfg.blokken-1)*cfg.herstellDuur;
+  const totaal=warmup+blokTijd+herstelTijd+cooldown;
+  const helling=Math.round(5+(cfg.wHigh-190)/20);
+  document.getElementById('sPreview').innerHTML=`
+    <div class="s-preview-title">Sessieoverzicht</div>
+    <div class="s-preview-row"><span>Totale duur</span><span>~${totaal} min</span></div>
+    <div class="s-preview-row"><span>Aantal blokken</span><span>${cfg.blokken}×</span></div>
+    <div class="s-preview-row"><span>Blokduur</span><span>${cfg.blokDuur} min</span></div>
+    <div class="s-preview-row"><span>Wattage opbouw</span><span>${cfg.wLow}W</span></div>
+    <div class="s-preview-row"><span>Wattage brug</span><span>${cfg.wMid}W</span></div>
+    <div class="s-preview-row"><span>Wattage doelzone</span><span>${cfg.wHigh}W</span></div>
+    <div class="s-preview-row"><span>Helling equivalent</span><span>~${helling>0?helling:1}%</span></div>
+  `;
+}
+
+function saveSettings(){
+  try{localStorage.setItem(SK_CFG,JSON.stringify(cfg));}catch(e){}
+  buildItemList();
+  updateProg();
+  const btn=document.querySelector('.s-apply');
+  btn.textContent='✓ Opgeslagen';
+  setTimeout(()=>btn.textContent='Instellingen opslaan →',1500);
+}
+
+function buildShareText(r){
+  return ['🚴 BERGOP INTERVAL — '+r.datum,
+    r.gewicht?'⚖️ Gewicht: '+r.gewicht+' kg':'',
+    r.wHigh?'⚡ Doelwattage: '+r.wHigh+'W':'',
+    r.kcal?'🔥 Kcal: '+r.kcal:'',
+    r.km?'📏 Afstand: '+r.km+' km':'',
+    r.hrAvg?'❤️ Gem. hartslag: '+r.hrAvg+' bpm':'',
+    r.hrMax?'❤️‍🔥 Max. hartslag: '+r.hrMax+' bpm':'',
+    '','📊 Evaluatie',
+    'Zware blokken: '+r.blok6,
+    'Herstel: '+r.herstel,
+    'Doel Ardennen: '+r.doel,
+    '',r.voorstelRaw?'→ Volgende sessie:\n'+r.voorstelRaw:''
+  ].filter(Boolean).join('\n').trim();
+}
+
+function saveData(){
+  const raw=genereerVoorstel()||'';
+  const record={
+    datum:new Date().toLocaleDateString('nl-BE'),
+    gewicht:gewicht,
+    blok6:getQ('blok 4')||'—',
+    herstel:getQ('hartslag')||'—',
+    doel:doel||'—',
+    wLow:cfg.wLow, wMid:cfg.wMid, wHigh:cfg.wHigh,
+    blokDuur:cfg.blokDuur, blokken:cfg.blokken,
+    kcal:document.getElementById('dKcal').value||null,
+    km:document.getElementById('dKm').value||null,
+    hrAvg:document.getElementById('dHrAvg').value||null,
+    hrMax:document.getElementById('dHrMax').value||null,
+    voorstelRaw:raw
+  };
+  sessies.push(record);
+  try{localStorage.setItem(SK,JSON.stringify(sessies));}catch(e){}
+  document.getElementById('saveBtn').textContent='✓ Opgeslagen';
+  document.getElementById('saveBtn').disabled=true;
+  document.getElementById('deelCard').classList.add('active');
+  renderHistoriek();
+}
+
+function deelSessie(){
+  const last=sessies[sessies.length-1];
+  const txt=buildShareText(last);
+  if(navigator.share){navigator.share({title:'Bergop Interval — '+last.datum,text:txt}).catch(()=>{});}
+  else kopieerSessie();
+}
+
+function kopieerSessie(){
+  const last=sessies[sessies.length-1];
+  const txt=buildShareText(last);
+  if(navigator.clipboard){navigator.clipboard.writeText(txt).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='✓ Gekopieerd!';
+    setTimeout(()=>btn.textContent='Kopieer als tekst',2000);
+  });}
+}
+
+function updateProg(){
+  const done=document.querySelectorAll('.item.done').length;
+  const pct=Math.round((done/totalItems)*100);
+  document.getElementById('progBar').style.width=pct+'%';
+  document.getElementById('progLabel').textContent=done+' / '+totalItems+' gedaan';
+  document.getElementById('flow').classList.toggle('active',done===totalItems);
+}
+
+function renderHistoriek(){
+  const el=document.getElementById('histList');
+  const sub=document.getElementById('histSubtitle');
+  if(!sessies||sessies.length===0){
+    el.innerHTML='<div class="hist-empty">Nog geen sessies opgeslagen.</div>';
+    if(sub) sub.textContent='Jouw trainingslog';
+    return;
+  }
+  if(sub) sub.textContent=sessies.length+' sessie'+(sessies.length===1?'':'s');
+  el.innerHTML=[...sessies].reverse().map(s=>`
+    <div class="hcard">
+      <div class="hcard-date">${s.datum}${s.gewicht?' · '+s.gewicht+' kg':''}</div>
+      <div class="hcard-stats">
+        ${s.wHigh?`<div class="hstat"><span>Doelwattage</span><span>${s.wHigh} W</span></div>`:''}
+        ${s.blokken?`<div class="hstat"><span>Blokken</span><span>${s.blokken}× ${s.blokDuur||4} min</span></div>`:''}
+        ${s.hrAvg?`<div class="hstat"><span>Hartslag gem.</span><span>${s.hrAvg} bpm</span></div>`:''}
+        ${s.hrMax?`<div class="hstat"><span>Hartslag max.</span><span>${s.hrMax} bpm</span></div>`:''}
+        ${s.kcal?`<div class="hstat"><span>Kcal</span><span>${s.kcal}</span></div>`:''}
+        ${s.km?`<div class="hstat"><span>Afstand</span><span>${s.km} km</span></div>`:''}
+      </div>
+      <div class="hcard-doel">Doel: ${s.doel} · Zware blokken: ${s.blok6}</div>
+      ${s.voorstelRaw?`<div class="hcard-next">→ ${s.voorstelRaw}</div>`:''}
+    </div>
+  `).join('');
+}
+
+function resetAll(){
+  document.querySelectorAll('.item.done').forEach(el=>el.classList.remove('done'));
+  document.querySelectorAll('.qbtn.sel').forEach(b=>b.classList.remove('sel'));
+  ['dKcal','dKm','dHrAvg','dHrMax'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('voorstel').classList.remove('active');
+  document.getElementById('voorstelTxt').innerHTML='';
+  document.getElementById('flow').classList.remove('active');
+  document.getElementById('deelCard').classList.remove('active');
+  document.getElementById('saveBtn').textContent='Sessie opslaan →';
+  document.getElementById('saveBtn').disabled=false;
+  doel=null; gewicht=null;
+  updateProg();
+  document.getElementById('startOverlay').classList.remove('hidden');
+  document.getElementById('startGewicht').value='';
+  document.getElementById('sessionBadge').textContent='';
+  if(sessies.length>0){
+    const last=sessies[sessies.length-1];
+    const txt=document.getElementById('prevNoteText');
+    let parts=[last.datum];
+    if(last.gewicht) parts.push(last.gewicht+' kg');
+    if(last.wHigh) parts.push('Doelzone: '+last.wHigh+'W');
+    if(last.doel&&last.doel!=='—') parts.push(last.doel);
+    txt.textContent=parts.join(' · ');
+    if(last.voorstelRaw) txt.textContent+='\n→ '+last.voorstelRaw.substring(0,100)+(last.voorstelRaw.length>100?'…':'');
+    document.getElementById('prevNote').classList.add('show');
+  }
+}
+</script>
+</body>
+</html>
